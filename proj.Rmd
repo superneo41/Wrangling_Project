@@ -1,0 +1,68 @@
+---
+title: "project"
+author: "Yi Cao"
+date: "4/16/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(tidycensus)
+library(tidyverse)
+library(rvest)
+census_api_key("5abc319e75d408f3f72ce7bc77db6ad6cc7ff899")
+```
+
+```{r data_prepare_starbucks}
+# scrape starbucks_by_states data from StateMaster: http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition
+url <- "http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition"
+#browseURL(url)
+starbucks_by_states_txt <- url %>% # create a String[] 
+  read_html() %>% 
+  html_nodes(".td150 , .td180 , .clickable") %>% # found the node with selector.gadget
+  html_text()
+state = rep(0,51)
+number = rep(0,51)
+for (i in 1:length(starbucks_by_states_txt)){
+  if(i %% 2 == 1) state[(i+1)/2] = starbucks_by_states_txt[i]
+  else number[(i+1)/2] = as.numeric(starbucks_by_states_txt[i]) # convert to numeric 
+}
+starbucks_by_states <- cbind(state,number)
+colnames(starbucks_by_states)[1] = "state"
+colnames(starbucks_by_states)[2] = "num_of_starbucks"
+head(starbucks_by_states)
+# clean starbucks data 
+# etc. "  California:" NA , because of the "c" in 2,010, califonia number become NA
+# but its the only NA, just type it in
+starbucks_by_states[1,2] <- 2010
+starbucks_by_states <- as.data.frame((starbucks_by_states))
+# remove space before california, remove ":"
+starbucks_by_states$state <- str_replace(starbucks_by_states$state,":","")
+# final data
+head(starbucks_by_states)
+```
+
+```{r data_prepare_diabetes}
+# diabetes in america. From Centers for Disease Control and Prevention
+# https://gis.cdc.gov/grasp/diabetes/DiabetesAtlas.html
+diabetes_2014 <- read_csv("county_ranks_2014.csv")
+# drop useless columns: "FIPS_code","Year","Age","Sex","Estimate_type"
+drop_variables <- c("FIPS_code","Year","Age","Sex","Estimate_type")
+diabetes_2014 <- diabetes %>% select(-one_of(drop_variables))
+head(diabetes_2014)
+```
+
+```{r data_prepare_household_income}
+median_household_income <- 
+  get_acs(geography = "state", 
+              variables = c(medincome = "B19013_001"),year = 2014)
+head(nj_median_household_income)
+```
+
+
+
+
+

@@ -7,7 +7,7 @@ Wrangle data from 3 sources:
 download csv dataset for diabetes in america 2014. From Centers for Disease Control and Prevention  
 https://gis.cdc.gov/grasp/diabetes/DiabetesAtlas.html  
 2.   
-median household income: census   
+median household income:     
 census get_acs  
 3.
 scrape starbucks_by_states data from StateMaster:  

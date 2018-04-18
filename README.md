@@ -24,11 +24,13 @@ census B01003_001E
 # step 2
 clean data  
 1.  
-delete useless rows   
+delete useless rows read from excel  
 2.   
 convert char to numeric for some variable  
 3.   
 delete some unnecessary symbols like ","  ":" in the data  
+4.   
+trim the white space in front of the values in starbucks data (in order to join with other dataset)    
    
 # step 3
 generate some plots   

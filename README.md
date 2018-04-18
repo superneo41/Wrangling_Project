@@ -15,7 +15,7 @@ http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definiti
 4.  
 download excel data for McDonald’s by states. From statista   
 https://www.statista.com/statistics/631235/number-of-mcdonald-s-us-by-state/   
-5.   
+5.  
 US population by states  
 census B01003_001E  
 

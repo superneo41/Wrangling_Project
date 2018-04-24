@@ -13,5 +13,8 @@ I download the McDonald's stores data from Statista Website:
 https://www.statista.com/statistics/631235/number-of-mcdonald-s-us-by-state/   
 
 ### 3. Approach
-I try to visualize all the data. First I plot some maps showing the household income, number of Starbucks/McDonald's to get a rough idea about which states has the high income and which states has the most Starbucks/McDonald's stores. Then I fit a simple linear regression to see if income truely related to S/M (Starbucks/McDonald's). Finally, I analyse the regression model and get some insights.
+I try to visualize all the data.    
+First I plot some maps showing the household income, number of Starbucks/McDonald's to get a rough idea about which states has the high income and which states has the most Starbucks/McDonald's stores.   
+Then I fit a simple linear regression to see if income truely related to S/M (Starbucks/McDonald's).    
+Finally, I analyse the regression model and get some insights.
 

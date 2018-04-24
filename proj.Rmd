@@ -1,23 +1,60 @@
 ---
-title: "project"
+title: "Income, Starbucks & McDonald's"
 author: "Yi Cao"
 date: "4/16/2018"
-output: pdf_document
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r packages}
+## Introduction
+![](https://upload.wikimedia.org/wikipedia/zh/thumb/2/23/Starbucks_Coffee_Logo_1992-2010.svg/200px-Starbucks_Coffee_Logo_1992-2010.svg.png)
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Mcdonald%27s_logo.svg/220px-Mcdonald%27s_logo.svg.png)
+
+### 1. Problem   
+Is there a relation between State Household Income, per capita Starbucks & per capita McDonald's ?
+The reason I came up with this question is because I observed that there are more students in Starbucks when it is finals week. People need coffee to stay focus on the study. So I wonder if people in one state consume more Starbucks coffee, does that means these people are more productive and make that state average income higher ? Similarly, what about McDonald's ?
+
+### 2. Data
+I obtained the average household income data and population data from the CENSUS using an API key.   
+I scraped the starbucks stores data from StateMaster Website:  
+http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition   
+I download the McDonald's stores data from Statista Website:    
+https://www.statista.com/statistics/631235/number-of-mcdonald-s-us-by-state/   
+
+### 3. Approach
+I try to visualize all the data. First I plot some maps showing the household income, number of Starbucks/McDonald's to get a rough idea about which states has the high income and which states has the most Starbucks/McDonald's stores. Then I fit a simple linear regression to see if income truely related to S/M (Starbucks/McDonald's). Finally, I analyse the regression model and get some insights.
+
+
+## Packages Required
+
+```{r packages, message=FALSE, warning=FALSE}
 library(tidycensus)
 library(tidyverse)
 library(rvest)
-census_api_key("5abc319e75d408f3f72ce7bc77db6ad6cc7ff899")
+library(readxl)
+library(maps)
 ```
 
-```{r data_prepare_starbucks}
-# scrape starbucks_by_states data from StateMaster: http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition
+```{r API,include=FALSE}
+census_api_key("put your own keys here")
+```
+    
+    
+## Data Preparation
+  
+  
+### Data 1 
+
+scrape starbucks_by_states data from StateMaster:   
+http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition   
+And clean the data   
+```{r data_prepare_starbucks, warning=FALSE}
 url <- "http://www.statemaster.com/graph/lif_sta_sto-lifestyle-starbucks-stores#definition"
 #browseURL(url)
 starbucks_by_states_txt <- url %>% # create a String[] 
@@ -30,39 +67,203 @@ for (i in 1:length(starbucks_by_states_txt)){
   if(i %% 2 == 1) state[(i+1)/2] = starbucks_by_states_txt[i]
   else number[(i+1)/2] = as.numeric(starbucks_by_states_txt[i]) # convert to numeric 
 }
-starbucks_by_states <- cbind(state,number)
-colnames(starbucks_by_states)[1] = "state"
-colnames(starbucks_by_states)[2] = "num_of_starbucks"
-head(starbucks_by_states)
+
 # clean starbucks data 
 # etc. "  California:" NA , because of the "c" in 2,010, califonia number become NA
 # but its the only NA, just type it in
-starbucks_by_states[1,2] <- 2010
-starbucks_by_states <- as.data.frame((starbucks_by_states))
+number[1] <- 2010
+# starbucks_by_states <- as.data.frame((starbucks_by_states))
 # remove space before california, remove ":"
-starbucks_by_states$state <- str_replace(starbucks_by_states$state,":","")
+state <- str_sub(state,3)
+state <- str_replace(state,":","")
+
+starbucks_by_states <- as.tibble(state)
+starbucks_by_states <- starbucks_by_states %>% mutate(number)
+colnames(starbucks_by_states)[1] = "state"
+colnames(starbucks_by_states)[2] = "num_of_starbucks"
 # final data
 head(starbucks_by_states)
+# save the data
+write.csv(starbucks_by_states,"starbucks.csv")
 ```
 
-```{r data_prepare_diabetes}
-# diabetes in america. From Centers for Disease Control and Prevention
-# https://gis.cdc.gov/grasp/diabetes/DiabetesAtlas.html
-diabetes_2014 <- read_csv("county_ranks_2014.csv")
-# drop useless columns: "FIPS_code","Year","Age","Sex","Estimate_type"
-drop_variables <- c("FIPS_code","Year","Age","Sex","Estimate_type")
-diabetes_2014 <- diabetes %>% select(-one_of(drop_variables))
-head(diabetes_2014)
-```
-
-```{r data_prepare_household_income}
+### Data 2   
+median household income obtained from census B19013_001     
+```{r data_prepare_household_income, message=FALSE}
 median_household_income <- 
   get_acs(geography = "state", 
               variables = c(medincome = "B19013_001"),year = 2014)
-head(nj_median_household_income)
+head(median_household_income)
+write.csv(median_household_income,"income.csv")
 ```
 
+### Data 3
+McDonald’s by states. Download from:   
+
+https://www.statista.com/statistics/631235/number-of-mcdonald-s-us-by-state/
+```{r data_prepare_McDonalds_by_state}
+mcdonalds <- read_excel("McDonalds.xlsx",sheet = "Data")
+mcdonalds <- mcdonalds[-c(1,2),]
+colnames(mcdonalds)[1] <- "state"
+colnames(mcdonalds)[2] <- "numbers"
+mcdonalds$numbers <- as.numeric(mcdonalds$numbers)
+mcdonalds_by_states <-mcdonalds
+head(mcdonalds_by_states)
+write.csv(mcdonalds_by_states,"mcdonalds.csv")
+```
+
+### Data 4
+US population by states obtained from census B01003_001E
+```{r data_prepare_US_Population_by_state, message=FALSE, warning=FALSE}
+population <- get_acs(geography = "state", 
+              variables = c(medincome = "B01003_001E"),year = 2014)
+head(population)
+write.csv(population,"pop.csv")
+```
+
+## Exploratory Data Analysis 
 
 
+*If you already done the data preparation, you can always start from here !*
+
+### Stpe 1: read in saved data
+```{r read_saved_data}
+starbucks_by_states <- read.csv("starbucks.csv")
+population <- read.csv("pop.csv")
+mcdonalds_by_states <- read.csv("mcdonalds.csv")
+median_household_income <- read.csv("income.csv")
+```
+
+### Stpe 2: plot the population over states
+```{r population_plot}
+population$NAME <- tolower(population$NAME)
+population_add_geo <- map_data("state") %>% left_join(population,by = c("region" = "NAME"))
+population_add_geo %>% ggplot(aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill= estimate))
+```
+
+### Stpe 3: plot the average income over states
+```{r income_plot}
+median_household_income$NAME <- tolower(median_household_income$NAME)
+income_add_geo <- map_data("state") %>% 
+  left_join(median_household_income,by = c("region" = "NAME"))
+
+income_add_geo_plot <- income_add_geo %>% 
+  ggplot(aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill= estimate))
+income_add_geo_plot
+```
+
+### Stpe 4: plot the McDonald's rate and Starbucks rate
+
+*rate means: the number of McDonald's/Starbucks per 1000 people in each state*
+```{r Star_Mc}
+# Starbucks
+
+starbucks_by_states$state <- tolower(starbucks_by_states$state)
+starbucks_add_geo <- map_data("state") %>% 
+  left_join(starbucks_by_states,by = c("region" = "state"))
+
+# starbucks/population rate
+starbucks_rate <- starbucks_add_geo %>% 
+  left_join(population,by = c("region" = "NAME")) %>% 
+  select(long,lat,group,region,num_of_starbucks,GEOID,estimate) %>% 
+  mutate(rate = num_of_starbucks/estimate*1000)
+
+starbucks_rate_plot <- starbucks_rate %>% 
+  ggplot(aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill= rate)) + 
+  ggtitle("Num of Starbucks/1000 peoples over States") 
+
+
+
+# McDonald's
+
+mcdonalds_by_states$state <- tolower(mcdonalds_by_states$state)
+mcdonalds_add_geo <- map_data("state") %>% 
+  left_join(mcdonalds_by_states,by = c("region" = "state"))
+
+# McDonalds/population rate
+mcdonalds_rate <- mcdonalds_add_geo %>% 
+  left_join(population,by = c("region" = "NAME")) %>% 
+  select(long,lat,group,region,numbers,GEOID,estimate) %>% 
+  mutate(rate = numbers/estimate*1000)
+
+mcdonalds_rate_plot <- mcdonalds_rate %>% 
+  ggplot(aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill= rate)) + 
+  ggtitle("Num of McDonald's/1000 people over States") 
+
+# starbucks_rate_plot
+starbucks_rate_plot
+# mcdonalds_rate_plot
+mcdonalds_rate_plot
+```
+
+#### Comments:    
+
+**As we can see from the two maps: **   
+
+**rate for starbucks are higher along the west coast of U.S.**  
+
+**rate for McDonald's are higher in the middle of U.S.**  
+
+**Is there a relation between Income and rate of Starbucks & McDonald's ?**
+
+### Stpe 5: Analysis   
+fit a regression model
+```{r compare}
+income_by_state <- median_household_income %>% select(state = NAME, income = estimate)
+population_by_states <- population %>% select(state="NAME",pop=estimate)
+compare <- income_by_state %>% 
+  left_join(mcdonalds_by_states,by = "state") %>% 
+  left_join(starbucks_by_states,by = "state") %>% 
+  left_join(population_by_states,by = "state") %>% 
+  rename(num_of_mc = numbers) %>% 
+  mutate(rate_of_mc = num_of_mc/pop*1000,rate_of_star=num_of_starbucks/pop*1000) %>% 
+  select(-X.x,-X.y)
+```
+
+```{r regression}
+head(compare)
+dat <- compare %>% select(-state,-pop)
+fit <- lm(income~.,data=dat)
+summary(fit)
+```
+#### Comments:   
+
+**P-value for num_of_mc & num_of_starbucks are both over 0.8, indicating non-significant variables.**  
+
+**While P-value for rate_of_mc and rate_of_star are both less than 0.1, indicating significant variables.   **
+
+**The coefficient for rate_of_mc is `r fit$coefficients[4]`, indicating the more McDonald's per 1000 people ** **have, the lower average income in that state.**
+
+**The coefficient for rate_of_mc is `r fit$coefficients[5]`, indicating the more Starbucks per 1000 people have, the higher average income in that state.**
+
+```{r plot_regression}
+fit_star <- lm(income~rate_of_star,data=dat)
+summary(fit_star)
+pred_star <- predict(fit_star,dat) 
+a <- rbind(pred_star,dat$income)
+barplot(a,beside = TRUE,col=c("darkblue","red"),
+        legend.text = c("income predicted by starbucks_rate","true income"),
+        xlab="state",
+        ylab="income",main="income Vs starbuck_rate") 
+```
+
+#### Comments:   
+
+**As shown in the barplot, we can roughly use the starbucks number per 1000 people to predict the **
+**average income in a state.**
+
+## Conclusion
+
+![](http://rpghearth.com/wp-content/uploads/2016/10/conclusion.jpg)
+
+1. State average household income do have relation with the number of Starbucks/McDonald's **per 1000 people** in that state (rate of Starbucks/McDonald's). But average income is not related to the number of Starbucks/McDonald's in that state   
+2. The higher rate of Starbucks the higher average income of the state  
+3. The higher rate of McDonald's the lower average income of the state  
+4. There is pretty good linear relation between Starbucks rate and the average income. We can even roughly estimate the state average income by the starbucks rate  
+5. The linear relation between income and starbucks rate doesn't necessarily mean they are in a causal relationship. There are more worth digging !
 
 
